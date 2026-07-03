@@ -1,0 +1,14 @@
+.gradle/
+build/
+*/build/
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.pid
+*.tmp
+run/
+runs/
+test-server/
+local-server-dashboard/
+MEMORY.md

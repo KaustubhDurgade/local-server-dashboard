@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "localservers",
+  "version": "${version}",
+  "name": "Local Server Dashboard",
+  "description": "Create and manage local Paper servers from Minecraft.",
+  "authors": ["Kaustubh"],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.kaustubh.localservers.client.LocalServersClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "1.21.11",
+    "fabric-api": "*",
+    "java": ">=21"
+  }
+}

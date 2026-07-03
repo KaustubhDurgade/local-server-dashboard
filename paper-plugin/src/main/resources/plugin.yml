@@ -1,0 +1,10 @@
+name: LocalServersBridge
+version: ${version}
+main: com.kaustubh.localservers.plugin.LocalServersBridgePlugin
+description: Local server dashboard bridge plugin.
+author: Kaustubh
+api-version: '1.21.11'
+commands:
+  localservers:
+    description: Shows local server tunnel status.
+    usage: /localservers
