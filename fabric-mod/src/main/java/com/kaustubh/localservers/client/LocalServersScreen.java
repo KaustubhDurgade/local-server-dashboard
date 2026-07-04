@@ -7,7 +7,10 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
+import java.net.Inet4Address;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -168,7 +171,8 @@ public final class LocalServersScreen extends Screen {
         panel(context, panelX - 12, y, 220, panelHeight, 0xEE121822);
         label(context, selectedServer, panelX, y + 12, 0xFFFFFFFF);
         label(context, statusFor(selectedServer), panelX, y + 27, statusColor(selectedServer));
-        infoLabel(context, "Give friends: " + shareAddress(), panelX, y + 75, 0xFF8DFF96, "The address friends use after the tunnel is online.");
+        infoLabel(context, "Wi-Fi: " + sameWifiAddress(), panelX, y + 61, 0xFF8DFF96, "For friends on the same Wi-Fi as you.");
+        infoLabel(context, "Internet: " + internetAddress(), panelX, y + 75, 0xFF8DFF96, "For friends elsewhere. Needs a real relay host.");
         infoLabel(context, "Plugin slug", panelX, y + 91, 0xFFD6D6D6, "The Modrinth project name to install, like chunky.");
         infoLabel(context, "Relay host", panelX, y + 136, 0xFFD6D6D6, "The relay server address. 127.0.0.1 is only your computer.");
         infoLabel(context, "Public port", panelX + 96, y + 136, 0xFFD6D6D6, "The port friends connect to on the relay.");
@@ -343,12 +347,15 @@ public final class LocalServersScreen extends Screen {
 
     private String startTunnel() throws Exception {
         captureFields();
+        if (!hasRelayHost()) {
+            return "Internet sharing needs a relay host. Wi-Fi friends can use " + sameWifiAddress();
+        }
         String id = selectedServerValue();
         ManagerClient.post("/servers/" + id + "/tunnel/start", "{\"relayHost\":\"" + q(draftRelayHost)
                 + "\",\"controlPort\":" + draftControlPort + ",\"dataPort\":" + draftDataPort
                 + ",\"publicPort\":" + draftPublicPort + ",\"localPort\":" + draftServerPort
                 + ",\"relayToken\":\"" + q(draftRelayToken) + "\"}");
-        return "Tunnel starting. Give friends: " + shareAddress();
+        return "Tunnel starting. Internet friends use " + internetAddress();
     }
 
     private String stopTunnel() throws Exception {
@@ -357,12 +364,33 @@ public final class LocalServersScreen extends Screen {
         return "Tunnel stopped for " + id;
     }
 
-    private String shareAddress() {
-        String host = q(draftRelayHost);
-        if (host.isBlank() || host.equals("127.0.0.1") || host.equals("localhost")) {
-            return "set relay host first";
+    private String internetAddress() {
+        if (!hasRelayHost()) {
+            return "set relay host";
         }
-        return host + ":" + draftPublicPort;
+        return q(draftRelayHost) + ":" + draftPublicPort;
+    }
+
+    private boolean hasRelayHost() {
+        String host = q(draftRelayHost);
+        return !host.isBlank() && !host.equals("127.0.0.1") && !host.equals("localhost");
+    }
+
+    private String sameWifiAddress() {
+        try {
+            for (NetworkInterface networkInterface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!networkInterface.isUp() || networkInterface.isLoopback()) {
+                    continue;
+                }
+                for (var address : Collections.list(networkInterface.getInetAddresses())) {
+                    if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+                        return address.getHostAddress() + ":" + draftServerPort;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return "this-computer:" + draftServerPort;
     }
 
     private boolean hasStatus(String json, String id, String expectedStatus) {
