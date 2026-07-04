@@ -95,21 +95,15 @@ public final class LocalServersScreen extends Screen {
         }
 
         int panelX = x + 190;
-        projectSlug = field(panelX, y + 106, 186, draftProjectSlug);
-        relayHost = field(panelX, y + 151, 90, draftRelayHost);
-        publicPort = field(panelX + 96, y + 151, 90, draftPublicPort);
-        controlPort = field(panelX, y + 191, 90, draftControlPort);
-        dataPort = field(panelX + 96, y + 191, 90, draftDataPort);
+        relayHost = field(panelX, y + 136, 186, draftRelayHost);
         addDrawableChild(ButtonWidget.builder(Text.literal("Start"), button -> runAction(this::startServer))
                 .dimensions(panelX, y + 48, 90, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Stop"), button -> runAction(this::stopServer))
                 .dimensions(panelX + 96, y + 48, 90, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Install"), button -> runAction(this::installPlugin))
-                .dimensions(panelX, y + 126, 90, 20).build());
-        int tunnelY = Math.min(y + 226, statusTop() - 28);
-        addDrawableChild(ButtonWidget.builder(Text.literal("Start Tunnel"), button -> runAction(this::startTunnel))
+        int tunnelY = Math.min(y + 166, statusTop() - 28);
+        addDrawableChild(ButtonWidget.builder(Text.literal("Share Online"), button -> runAction(this::startTunnel))
                 .dimensions(panelX, tunnelY, 90, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Stop Tunnel"), button -> runAction(this::stopTunnel))
+        addDrawableChild(ButtonWidget.builder(Text.literal("Stop Share"), button -> runAction(this::stopTunnel))
                 .dimensions(panelX + 96, tunnelY, 90, 20).build());
     }
 
@@ -130,9 +124,6 @@ public final class LocalServersScreen extends Screen {
             serverPort = field(x + 18, y + 70, 86, draftServerPort);
             relayHost = field(x + 122, y + 70, 110, draftRelayHost);
             publicPort = field(x + 250, y + 70, 86, draftPublicPort);
-            controlPort = field(x + 18, y + 126, 86, draftControlPort);
-            dataPort = field(x + 122, y + 126, 86, draftDataPort);
-            relayToken = field(x + 18, y + 182, 318, draftRelayToken);
             addDrawableChild(ButtonWidget.builder(Text.literal("Back"), button -> showCreate(1))
                     .dimensions(x + 18, y + 222, 112, 20).build());
             addDrawableChild(ButtonWidget.builder(Text.literal("Create"), button -> runAction(this::createServer))
@@ -171,14 +162,9 @@ public final class LocalServersScreen extends Screen {
         panel(context, panelX - 12, y, 220, panelHeight, 0xEE121822);
         label(context, selectedServer, panelX, y + 12, 0xFFFFFFFF);
         label(context, statusFor(selectedServer), panelX, y + 27, statusColor(selectedServer));
-        infoLabel(context, "Wi-Fi: " + sameWifiAddress(), panelX, y + 61, 0xFF8DFF96, "For friends on the same Wi-Fi as you.");
-        infoLabel(context, "Internet: " + internetAddress(), panelX, y + 75, 0xFF8DFF96, "For friends elsewhere. Needs a real relay host.");
-        infoLabel(context, "Plugin slug", panelX, y + 91, 0xFFD6D6D6, "The Modrinth project name to install, like chunky.");
-        infoLabel(context, "Relay host", panelX, y + 136, 0xFFD6D6D6, "The relay server address. 127.0.0.1 is only your computer.");
-        infoLabel(context, "Public port", panelX + 96, y + 136, 0xFFD6D6D6, "The port friends connect to on the relay.");
-        infoLabel(context, "Control", panelX, y + 176, 0xFFD6D6D6, "Relay control connection port.");
-        infoLabel(context, "Data", panelX + 96, y + 176, 0xFFD6D6D6, "Relay game traffic port.");
-        infoLabel(context, "Relay token is set during server creation", panelX, y + 216, 0xFF9E9E9E, "Optional relay password/token if your relay requires one.");
+        infoLabel(context, "Same Wi-Fi: " + sameWifiAddress(), panelX, y + 78, 0xFF8DFF96, "Give this to friends on your Wi-Fi.");
+        infoLabel(context, "Internet: " + internetAddress(), panelX, y + 94, 0xFF8DFF96, "Give this to friends outside your Wi-Fi.");
+        infoLabel(context, "Internet relay address", panelX, y + 121, 0xFFD6D6D6, "Only needed for friends outside your Wi-Fi.");
     }
 
     private void renderCreate(DrawContext context, int x, int y) {
@@ -190,15 +176,12 @@ public final class LocalServersScreen extends Screen {
             infoLabel(context, "RAM MB", x + 182, y + 46, 0xFFD6D6D6, "Memory for Paper. 4096 means 4 GB.");
             infoLabel(context, "CPU", x + 278, y + 46, 0xFFD6D6D6, "CPU cores Paper is allowed to use.");
         } else if (createStep == 1) {
-            infoLabel(context, "Starter plugin", x + 18, y + 68, 0xFFD6D6D6, "Optional Modrinth plugin to install first.");
-            label(context, "chunky is a good first test", x + 18, y + 112, 0xFF9E9E9E);
+            infoLabel(context, "Plugin name", x + 18, y + 68, 0xFFD6D6D6, "Optional. Example: chunky from Modrinth.");
+            label(context, "Optional. chunky preloads world chunks.", x + 18, y + 112, 0xFF9E9E9E);
         } else {
-            infoLabel(context, "MC port", x + 18, y + 54, 0xFFD6D6D6, "Local Minecraft server port.");
-            infoLabel(context, "Relay host", x + 122, y + 54, 0xFFD6D6D6, "Relay machine address. Needed for friends outside your Wi-Fi.");
-            infoLabel(context, "Player port", x + 250, y + 54, 0xFFD6D6D6, "Public relay port friends connect to.");
-            infoLabel(context, "Control", x + 18, y + 110, 0xFFD6D6D6, "Relay control connection port.");
-            infoLabel(context, "Data", x + 122, y + 110, 0xFFD6D6D6, "Relay game traffic port.");
-            infoLabel(context, "Relay token", x + 18, y + 166, 0xFFD6D6D6, "Optional password/token for the relay.");
+            infoLabel(context, "Minecraft port", x + 18, y + 54, 0xFFD6D6D6, "Friends on your Wi-Fi connect to this port.");
+            infoLabel(context, "Relay address", x + 122, y + 54, 0xFFD6D6D6, "Only needed for friends outside your Wi-Fi.");
+            infoLabel(context, "Internet port", x + 250, y + 54, 0xFFD6D6D6, "Port friends use on the relay.");
         }
     }
 
