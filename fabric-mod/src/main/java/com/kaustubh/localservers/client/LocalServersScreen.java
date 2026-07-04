@@ -41,7 +41,7 @@ public final class LocalServersScreen extends Screen {
         relayToken = field(x, y + 102, 300, "");
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Quick Start Local Server"), button -> {
-            call(() -> {
+            runAction(() -> {
                 status = "Creating server...";
                 ManagerClient.post("/servers/create", "{\"id\":\"" + q(serverId.getText()) + "\",\"minecraftVersion\":\"1.21.11\",\"ramMb\":"
                         + ramMb.getText() + ",\"cpuCores\":" + cpuCores.getText() + ",\"serverPort\":" + serverPort.getText() + "}");
@@ -52,28 +52,28 @@ public final class LocalServersScreen extends Screen {
             });
         }).dimensions(x, y + 136, 300, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Create Server"), button -> {
-            call(() -> ManagerClient.post("/servers/create", "{\"id\":\"" + q(serverId.getText()) + "\",\"minecraftVersion\":\"1.21.11\",\"ramMb\":"
+            runAction(() -> ManagerClient.post("/servers/create", "{\"id\":\"" + q(serverId.getText()) + "\",\"minecraftVersion\":\"1.21.11\",\"ramMb\":"
                     + ramMb.getText() + ",\"cpuCores\":" + cpuCores.getText() + ",\"serverPort\":" + serverPort.getText() + "}"));
         }).dimensions(x, y + 162, 145, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Start"), button -> {
-            call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/start", "{}"));
+            runAction(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/start", "{}"));
         }).dimensions(x + 155, y + 162, 70, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Stop"), button -> {
-            call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/stop", "{}"));
+            runAction(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/stop", "{}"));
         }).dimensions(x + 230, y + 162, 70, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Refresh"), button -> refresh())
                 .dimensions(x, y + 188, 95, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Install Plugin"), button -> {
-            call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/modrinth/install", "{\"project\":\"" + q(projectSlug.getText()) + "\",\"loader\":\"paper\"}"));
+            runAction(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/modrinth/install", "{\"project\":\"" + q(projectSlug.getText()) + "\",\"loader\":\"paper\"}"));
         }).dimensions(x + 105, y + 188, 95, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Start Tunnel"), button -> {
-            call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/tunnel/start", "{\"relayHost\":\"" + q(relayHost.getText())
+            runAction(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/tunnel/start", "{\"relayHost\":\"" + q(relayHost.getText())
                     + "\",\"controlPort\":" + controlPort.getText() + ",\"dataPort\":" + dataPort.getText()
                     + ",\"publicPort\":" + publicPort.getText() + ",\"localPort\":" + serverPort.getText()
                     + ",\"relayToken\":\"" + q(relayToken.getText()) + "\"}"));
         }).dimensions(x + 205, y + 188, 95, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Stop Tunnel"), button -> {
-            call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/tunnel/stop", "{}"));
+            runAction(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/tunnel/stop", "{}"));
         }).dimensions(x, y + 214, 145, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Back"), button -> close())
                 .dimensions(x + 155, y + 214, 145, 20).build());
@@ -84,7 +84,7 @@ public final class LocalServersScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
         int x = width / 2 - 150;
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFFFF);
         label(context, "Server", x, 42);
         label(context, "RAM MB", x + 100, 42);
         label(context, "CPU", x + 170, 42);
@@ -96,8 +96,8 @@ public final class LocalServersScreen extends Screen {
         label(context, "Data", x + 210, 110);
         label(context, "Relay token", x, 144);
         context.fill(x - 2, height - 48, x + 302, height - 12, 0xAA000000);
-        context.drawTextWithShadow(textRenderer, Text.literal("Status:"), x + 6, height - 42, 0xFFFFFF);
-        context.drawTextWithShadow(textRenderer, Text.literal(shortStatus()), x + 6, height - 28, 0xA0FFA0);
+        context.drawTextWithShadow(textRenderer, Text.literal("Status:"), x + 6, height - 42, 0xFFFFFFFF);
+        context.drawTextWithShadow(textRenderer, Text.literal(shortStatus()), x + 6, height - 28, 0xFFA0FFA0);
     }
 
     @Override
@@ -119,7 +119,7 @@ public final class LocalServersScreen extends Screen {
     }
 
     private void label(DrawContext context, String text, int x, int y) {
-        context.drawTextWithShadow(textRenderer, Text.literal(text), x, y, 0xD0D0D0);
+        context.drawTextWithShadow(textRenderer, Text.literal(text), x, y, 0xFFD0D0D0);
     }
 
     private String q(String value) {
@@ -135,6 +135,11 @@ public final class LocalServersScreen extends Screen {
                 status = "Error: " + ex.getMessage();
             }
         }, "localservers-ui").start();
+    }
+
+    private void runAction(ThrowingSupplier supplier) {
+        setFocused(null);
+        call(supplier);
     }
 
     private String shortStatus() {

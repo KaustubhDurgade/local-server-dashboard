@@ -241,6 +241,8 @@ public final class ManagerMain {
         try (OutputStream out = server.process.getOutputStream()) {
             out.write("stop\n".getBytes(StandardCharsets.UTF_8));
             out.flush();
+        } catch (IOException ignored) {
+            // Paper may already be closing stdin while it shuts down.
         }
         try {
             if (!server.process.waitFor(20, TimeUnit.SECONDS)) {
