@@ -132,7 +132,7 @@ public final class LocalServersScreen extends Screen {
             try {
                 status = supplier.get();
             } catch (Exception ex) {
-                status = "Error: " + ex.getMessage();
+                status = "Error: " + ManagerClient.errorText(ex);
             }
         }, "localservers-ui").start();
     }

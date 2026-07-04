@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.jar.JarFile;
 
 final class ManagerClient {
     static final String BASE_URL = "http://127.0.0.1:45631";
@@ -28,7 +29,7 @@ final class ManagerClient {
                 return;
             }
             try {
-                post("/shutdown", "{}");
+                rawPost("/shutdown", "{}");
                 Thread.sleep(500);
             } catch (Exception ignored) {
             }
@@ -42,6 +43,31 @@ final class ManagerClient {
     }
 
     static String get(String path) throws Exception {
+        try {
+            return rawGet(path);
+        } catch (Exception ex) {
+            ensureRunning();
+            Thread.sleep(800);
+            return rawGet(path);
+        }
+    }
+
+    static String post(String path, String body) throws Exception {
+        try {
+            return rawPost(path, body);
+        } catch (Exception ex) {
+            ensureRunning();
+            Thread.sleep(800);
+            return rawPost(path, body);
+        }
+    }
+
+    static String errorText(Exception ex) {
+        String message = ex.getMessage();
+        return ex.getClass().getSimpleName() + (message == null || message.isBlank() ? "" : ": " + message);
+    }
+
+    private static String rawGet(String path) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(BASE_URL + path))
                 .timeout(Duration.ofSeconds(5))
                 .GET()
@@ -49,7 +75,7 @@ final class ManagerClient {
         return checked(HTTP.send(request, HttpResponse.BodyHandlers.ofString()));
     }
 
-    static String post(String path, String body) throws Exception {
+    private static String rawPost(String path, String body) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(BASE_URL + path))
                 .timeout(Duration.ofSeconds(30))
                 .header("Content-Type", "application/json")
@@ -67,7 +93,7 @@ final class ManagerClient {
 
     private static boolean isHealthy() {
         try {
-            return get("/health").contains("\"ok\":true");
+            return rawGet("/health").contains("\"ok\":true");
         } catch (Exception ignored) {
             return false;
         }
@@ -75,7 +101,7 @@ final class ManagerClient {
 
     private static boolean isCurrent() {
         try {
-            return isHealthy() && get("/version").contains("\"version\":\"" + VERSION + "\"");
+            return isHealthy() && rawGet("/version").contains("\"version\":\"" + VERSION + "\"");
         } catch (Exception ignored) {
             return false;
         }
@@ -89,13 +115,21 @@ final class ManagerClient {
             if (in == null) {
                 throw new IOException("Bundled manager.jar missing");
             }
-            byte[] bundled = in.readAllBytes();
-            if (!Files.exists(target) || Files.size(target) != bundled.length) {
-                Files.write(target, bundled);
-                Files.writeString(dir.resolve("manager.version"), "0.1.0\n", StandardCharsets.UTF_8);
-            }
+            Files.copy(in, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            Files.writeString(dir.resolve("manager.version"), "0.1.0\n", StandardCharsets.UTF_8);
+        }
+        if (!validJar(target)) {
+            throw new IOException("Extracted manager.jar is invalid");
         }
         return target;
+    }
+
+    private static boolean validJar(Path path) {
+        try (JarFile ignored = new JarFile(path.toFile())) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 
     private static String javaBin() {
