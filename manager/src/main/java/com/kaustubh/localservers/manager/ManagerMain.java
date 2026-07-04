@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -225,6 +226,7 @@ public final class ManagerMain {
         command.add("nogui");
         ProcessBuilder builder = new ProcessBuilder(command)
                 .directory(server.dir.toFile())
+                .redirectInput(ProcessBuilder.Redirect.PIPE)
                 .redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.appendTo(server.dir.resolve("server.log").toFile()));
         server.process = builder.start();
@@ -238,6 +240,14 @@ public final class ManagerMain {
         }
         try (OutputStream out = server.process.getOutputStream()) {
             out.write("stop\n".getBytes(StandardCharsets.UTF_8));
+            out.flush();
+        }
+        try {
+            if (!server.process.waitFor(20, TimeUnit.SECONDS)) {
+                server.process.destroy();
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         }
         return "{\"id\":\"" + id + "\",\"status\":\"stopping\"}";
     }
