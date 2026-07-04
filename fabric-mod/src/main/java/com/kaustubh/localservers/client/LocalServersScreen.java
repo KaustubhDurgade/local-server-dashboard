@@ -14,9 +14,11 @@ import java.util.regex.Pattern;
 
 public final class LocalServersScreen extends Screen {
     private static final Pattern SERVER_PATTERN = Pattern.compile("\\{\"id\":\"([^\"]+)\",\"status\":\"([^\"]+)\"}");
+    private static final int WIDTH = 398;
 
     private final Screen parent;
     private final List<ServerRow> servers = new ArrayList<>();
+    private final List<InfoTip> infoTips = new ArrayList<>();
     private volatile String status = "Ready";
     private View view = View.DASHBOARD;
     private int createStep;
@@ -55,16 +57,16 @@ public final class LocalServersScreen extends Screen {
 
     private void rebuild() {
         clearChildren();
-        int x = width / 2 - 188;
-        int y = 42;
+        int x = originX();
+        int y = originY();
         addDrawableChild(ButtonWidget.builder(Text.literal("Dashboard"), button -> show(View.DASHBOARD))
-                .dimensions(x, 14, 90, 20).build());
+                .dimensions(x, y - 28, 92, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("New Server"), button -> showCreate(0))
-                .dimensions(x + 96, 14, 96, 20).build());
+                .dimensions(x + 100, y - 28, 104, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Refresh"), button -> reloadServers())
-                .dimensions(x + 198, 14, 82, 20).build());
+                .dimensions(x + 212, y - 28, 86, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Back"), button -> close())
-                .dimensions(x + 286, 14, 90, 20).build());
+                .dimensions(x + 306, y - 28, 92, 20).build());
         if (view == View.CREATE) {
             initCreate(x, y);
         } else {
@@ -76,36 +78,36 @@ public final class LocalServersScreen extends Screen {
         int rowY = y + 35;
         if (servers.isEmpty()) {
             addDrawableChild(ButtonWidget.builder(Text.literal("Create first server"), button -> showCreate(0))
-                    .dimensions(x + 16, rowY + 36, 128, 20).build());
+                    .dimensions(x + 18, rowY + 36, 144, 20).build());
         } else {
             for (ServerRow server : servers) {
-                ButtonWidget row = ButtonWidget.builder(Text.literal(server.id + "  " + server.status), button -> {
+                String label = (server.id.equals(selectedServer) ? "> " : "") + server.id + "  " + server.status;
+                ButtonWidget row = ButtonWidget.builder(Text.literal(label), button -> {
                     selectedServer = server.id;
                     rebuild();
-                }).dimensions(x + 10, rowY, 150, 20).build();
-                row.active = !server.id.equals(selectedServer);
+                }).dimensions(x + 14, rowY, 154, 20).build();
                 addDrawableChild(row);
                 rowY += 24;
             }
         }
 
-        int panelX = x + 178;
-        projectSlug = field(panelX, y + 93, 180, draftProjectSlug);
-        relayHost = field(panelX, y + 136, 86, draftRelayHost);
-        publicPort = field(panelX + 94, y + 136, 86, draftPublicPort);
-        controlPort = field(panelX, y + 176, 86, draftControlPort);
-        dataPort = field(panelX + 94, y + 176, 86, draftDataPort);
-        relayToken = field(panelX, y + 216, 180, draftRelayToken);
+        int panelX = x + 190;
+        projectSlug = field(panelX, y + 106, 186, draftProjectSlug);
+        relayHost = field(panelX, y + 151, 90, draftRelayHost);
+        publicPort = field(panelX + 96, y + 151, 90, draftPublicPort);
+        controlPort = field(panelX, y + 191, 90, draftControlPort);
+        dataPort = field(panelX + 96, y + 191, 90, draftDataPort);
         addDrawableChild(ButtonWidget.builder(Text.literal("Start"), button -> runAction(this::startServer))
-                .dimensions(panelX, y + 38, 86, 20).build());
+                .dimensions(panelX, y + 48, 90, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Stop"), button -> runAction(this::stopServer))
-                .dimensions(panelX + 94, y + 38, 86, 20).build());
+                .dimensions(panelX + 96, y + 48, 90, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Install"), button -> runAction(this::installPlugin))
-                .dimensions(panelX, y + 113, 86, 20).build());
+                .dimensions(panelX, y + 126, 90, 20).build());
+        int tunnelY = Math.min(y + 226, statusTop() - 28);
         addDrawableChild(ButtonWidget.builder(Text.literal("Start Tunnel"), button -> runAction(this::startTunnel))
-                .dimensions(panelX, y + 237, 86, 20).build());
+                .dimensions(panelX, tunnelY, 90, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Stop Tunnel"), button -> runAction(this::stopTunnel))
-                .dimensions(panelX + 94, y + 237, 86, 20).build());
+                .dimensions(panelX + 96, tunnelY, 90, 20).build());
     }
 
     private void initCreate(int x, int y) {
@@ -139,57 +141,60 @@ public final class LocalServersScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
-        int x = width / 2 - 188;
-        int y = 42;
-        context.drawCenteredTextWithShadow(textRenderer, Text.literal("Local Servers"), width / 2, 18, 0xFFFFFFFF);
+        infoTips.clear();
+        int x = originX();
+        int y = originY();
         if (view == View.CREATE) {
             renderCreate(context, x, y);
         } else {
             renderDashboard(context, x, y);
         }
-        context.fill(x, height - 46, x + 376, height - 12, 0xCC101018);
-        context.drawTextWithShadow(textRenderer, Text.literal("Status"), x + 10, height - 40, 0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer, Text.literal(shortStatus()), x + 10, height - 27, 0xFF8DFF96);
+        super.render(context, mouseX, mouseY, delta);
+        context.fill(x, statusTop(), x + WIDTH, height - 12, 0xEE101018);
+        infoLabel(context, "Status", x + 10, statusTop() + 6, 0xFFFFFFFF, "What the manager is doing right now.");
+        context.drawTextWithShadow(textRenderer, Text.literal(shortStatus()), x + 10, statusTop() + 19, 0xFF8DFF96);
+        drawInfoTip(context, mouseX, mouseY);
     }
 
     private void renderDashboard(DrawContext context, int x, int y) {
-        panel(context, x, y, 168, 256, 0xCC171717);
-        label(context, "Servers", x + 10, y + 10, 0xFFFFFFFF);
+        int panelHeight = Math.max(226, statusTop() - y - 8);
+        panel(context, x, y, 182, panelHeight, 0xEE171717);
+        infoLabel(context, "Servers", x + 14, y + 12, 0xFFFFFFFF, "Local Paper servers this manager knows about.");
         if (servers.isEmpty()) {
             label(context, "No local servers yet", x + 18, y + 42, 0xFFD6D6D6);
             label(context, "Start with a Paper server", x + 18, y + 56, 0xFF9E9E9E);
         }
-        int panelX = x + 178;
-        panel(context, panelX - 10, y, 208, 272, 0xCC121822);
-        label(context, selectedServer, panelX, y + 10, 0xFFFFFFFF);
-        label(context, statusFor(selectedServer), panelX, y + 23, statusColor(selectedServer));
-        label(context, "Plugin slug", panelX, y + 78, 0xFFD6D6D6);
-        label(context, "Relay host", panelX, y + 121, 0xFFD6D6D6);
-        label(context, "Public port", panelX + 94, y + 121, 0xFFD6D6D6);
-        label(context, "Control", panelX, y + 161, 0xFFD6D6D6);
-        label(context, "Data", panelX + 94, y + 161, 0xFFD6D6D6);
-        label(context, "Relay token", panelX, y + 201, 0xFFD6D6D6);
+        int panelX = x + 190;
+        panel(context, panelX - 12, y, 220, panelHeight, 0xEE121822);
+        label(context, selectedServer, panelX, y + 12, 0xFFFFFFFF);
+        label(context, statusFor(selectedServer), panelX, y + 27, statusColor(selectedServer));
+        infoLabel(context, "Give friends: " + shareAddress(), panelX, y + 75, 0xFF8DFF96, "The address friends use after the tunnel is online.");
+        infoLabel(context, "Plugin slug", panelX, y + 91, 0xFFD6D6D6, "The Modrinth project name to install, like chunky.");
+        infoLabel(context, "Relay host", panelX, y + 136, 0xFFD6D6D6, "The relay server address. 127.0.0.1 is only your computer.");
+        infoLabel(context, "Public port", panelX + 96, y + 136, 0xFFD6D6D6, "The port friends connect to on the relay.");
+        infoLabel(context, "Control", panelX, y + 176, 0xFFD6D6D6, "Relay control connection port.");
+        infoLabel(context, "Data", panelX + 96, y + 176, 0xFFD6D6D6, "Relay game traffic port.");
+        infoLabel(context, "Relay token is set during server creation", panelX, y + 216, 0xFF9E9E9E, "Optional relay password/token if your relay requires one.");
     }
 
     private void renderCreate(DrawContext context, int x, int y) {
-        panel(context, x, y, 376, 290, 0xCC121822);
+        panel(context, x, y, WIDTH, Math.min(290, statusTop() - y - 8), 0xEE121822);
         label(context, "Create Paper Server", x + 18, y + 16, 0xFFFFFFFF);
         label(context, "Step " + (createStep + 1) + " of 3", x + 18, y + 32, 0xFF8DFF96);
         if (createStep == 0) {
-            label(context, "Server", x + 18, y + 46, 0xFFD6D6D6);
-            label(context, "RAM MB", x + 182, y + 46, 0xFFD6D6D6);
-            label(context, "CPU", x + 278, y + 46, 0xFFD6D6D6);
+            infoLabel(context, "Server", x + 18, y + 46, 0xFFD6D6D6, "Folder/name for this local server.");
+            infoLabel(context, "RAM MB", x + 182, y + 46, 0xFFD6D6D6, "Memory for Paper. 4096 means 4 GB.");
+            infoLabel(context, "CPU", x + 278, y + 46, 0xFFD6D6D6, "CPU cores Paper is allowed to use.");
         } else if (createStep == 1) {
-            label(context, "Starter plugin", x + 18, y + 68, 0xFFD6D6D6);
+            infoLabel(context, "Starter plugin", x + 18, y + 68, 0xFFD6D6D6, "Optional Modrinth plugin to install first.");
             label(context, "chunky is a good first test", x + 18, y + 112, 0xFF9E9E9E);
         } else {
-            label(context, "MC port", x + 18, y + 54, 0xFFD6D6D6);
-            label(context, "Relay host", x + 122, y + 54, 0xFFD6D6D6);
-            label(context, "Player port", x + 250, y + 54, 0xFFD6D6D6);
-            label(context, "Control", x + 18, y + 110, 0xFFD6D6D6);
-            label(context, "Data", x + 122, y + 110, 0xFFD6D6D6);
-            label(context, "Relay token", x + 18, y + 166, 0xFFD6D6D6);
+            infoLabel(context, "MC port", x + 18, y + 54, 0xFFD6D6D6, "Local Minecraft server port.");
+            infoLabel(context, "Relay host", x + 122, y + 54, 0xFFD6D6D6, "Relay machine address. Needed for friends outside your Wi-Fi.");
+            infoLabel(context, "Player port", x + 250, y + 54, 0xFFD6D6D6, "Public relay port friends connect to.");
+            infoLabel(context, "Control", x + 18, y + 110, 0xFFD6D6D6, "Relay control connection port.");
+            infoLabel(context, "Data", x + 122, y + 110, 0xFFD6D6D6, "Relay game traffic port.");
+            infoLabel(context, "Relay token", x + 18, y + 166, 0xFFD6D6D6, "Optional password/token for the relay.");
         }
     }
 
@@ -233,9 +238,42 @@ public final class LocalServersScreen extends Screen {
         context.drawTextWithShadow(textRenderer, Text.literal(text), x, y, color);
     }
 
+    private void infoLabel(DrawContext context, String text, int x, int y, int color, String help) {
+        label(context, text, x, y, color);
+        int infoX = x + textRenderer.getWidth(text) + 6;
+        context.drawTextWithShadow(textRenderer, Text.literal("(i)"), infoX, y, 0xFFB8C7FF);
+        infoTips.add(new InfoTip(infoX, y, help));
+    }
+
+    private void drawInfoTip(DrawContext context, int mouseX, int mouseY) {
+        for (InfoTip tip : infoTips) {
+            if (mouseX >= tip.x && mouseX <= tip.x + 15 && mouseY >= tip.y && mouseY <= tip.y + 10) {
+                int boxWidth = Math.min(300, textRenderer.getWidth(tip.text) + 12);
+                int boxX = Math.min(mouseX + 10, width - boxWidth - 8);
+                int boxY = Math.max(8, mouseY - 24);
+                context.fill(boxX, boxY, boxX + boxWidth, boxY + 20, 0xF0101018);
+                context.fill(boxX, boxY, boxX + boxWidth, boxY + 1, 0x99FFFFFF);
+                context.drawTextWithShadow(textRenderer, Text.literal(tip.text), boxX + 6, boxY + 6, 0xFFFFFFFF);
+                return;
+            }
+        }
+    }
+
     private void panel(DrawContext context, int x, int y, int width, int height, int color) {
         context.fill(x, y, x + width, y + height, color);
         context.fill(x, y, x + width, y + 1, 0x55FFFFFF);
+    }
+
+    private int originX() {
+        return Math.max(8, (width - WIDTH) / 2);
+    }
+
+    private int originY() {
+        return height < 360 ? 42 : 52;
+    }
+
+    private int statusTop() {
+        return height - 46;
     }
 
     private String q(String value) {
@@ -310,13 +348,21 @@ public final class LocalServersScreen extends Screen {
                 + "\",\"controlPort\":" + draftControlPort + ",\"dataPort\":" + draftDataPort
                 + ",\"publicPort\":" + draftPublicPort + ",\"localPort\":" + draftServerPort
                 + ",\"relayToken\":\"" + q(draftRelayToken) + "\"}");
-        return "Tunnel starting for " + id + " on player port " + draftPublicPort;
+        return "Tunnel starting. Give friends: " + shareAddress();
     }
 
     private String stopTunnel() throws Exception {
         String id = selectedServerValue();
         ManagerClient.post("/servers/" + id + "/tunnel/stop", "{}");
         return "Tunnel stopped for " + id;
+    }
+
+    private String shareAddress() {
+        String host = q(draftRelayHost);
+        if (host.isBlank() || host.equals("127.0.0.1") || host.equals("localhost")) {
+            return "set relay host first";
+        }
+        return host + ":" + draftPublicPort;
     }
 
     private boolean hasStatus(String json, String id, String expectedStatus) {
@@ -394,7 +440,7 @@ public final class LocalServersScreen extends Screen {
         if (status == null) {
             return "";
         }
-        return status.length() > 84 ? status.substring(0, 84) : status;
+        return status.length() > 90 ? status.substring(0, 90) : status;
     }
 
     private static List<ServerRow> parseServers(String json) {
@@ -412,6 +458,9 @@ public final class LocalServersScreen extends Screen {
     }
 
     private record ServerRow(String id, String status) {
+    }
+
+    private record InfoTip(int x, int y, String text) {
     }
 
     private interface ThrowingSupplier {

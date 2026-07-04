@@ -16,7 +16,7 @@ public final class LocalServersClient implements ClientModInitializer {
                 Screens.getButtons(screen).add(ButtonWidget.builder(Text.literal("Local Servers"), button -> {
                     ManagerClient.ensureRunning();
                     client.setScreen(new LocalServersScreen(screen));
-                }).dimensions(width / 2 - 100, height / 4 + 120, 200, 20).build());
+                }).dimensions(8, 8, 112, 20).build());
             }
         });
     }
