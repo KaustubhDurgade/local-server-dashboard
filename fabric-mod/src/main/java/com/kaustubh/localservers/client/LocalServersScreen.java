@@ -8,7 +8,7 @@ import net.minecraft.text.Text;
 
 public final class LocalServersScreen extends Screen {
     private final Screen parent;
-    private String status = "Loading...";
+    private volatile String status = "Ready";
     private TextFieldWidget serverId;
     private TextFieldWidget ramMb;
     private TextFieldWidget cpuCores;
@@ -28,7 +28,7 @@ public final class LocalServersScreen extends Screen {
     @Override
     protected void init() {
         int x = width / 2 - 150;
-        int y = 42;
+        int y = 54;
         serverId = field(x, y, 90, "main");
         ramMb = field(x + 100, y, 60, "4096");
         cpuCores = field(x + 170, y, 50, "2");
@@ -40,32 +40,43 @@ public final class LocalServersScreen extends Screen {
         dataPort = field(x + 210, y + 68, 90, "45641");
         relayToken = field(x, y + 102, 300, "");
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Create Paper Server"), button -> {
+        addDrawableChild(ButtonWidget.builder(Text.literal("Quick Start Local Server"), button -> {
+            call(() -> {
+                status = "Creating server...";
+                ManagerClient.post("/servers/create", "{\"id\":\"" + q(serverId.getText()) + "\",\"minecraftVersion\":\"1.21.11\",\"ramMb\":"
+                        + ramMb.getText() + ",\"cpuCores\":" + cpuCores.getText() + ",\"serverPort\":" + serverPort.getText() + "}");
+                status = "Installing " + projectSlug.getText() + "...";
+                ManagerClient.post("/servers/" + q(serverId.getText()) + "/modrinth/install", "{\"project\":\"" + q(projectSlug.getText()) + "\",\"loader\":\"paper\"}");
+                status = "Starting server...";
+                return ManagerClient.post("/servers/" + q(serverId.getText()) + "/start", "{}");
+            });
+        }).dimensions(x, y + 136, 300, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Create Server"), button -> {
             call(() -> ManagerClient.post("/servers/create", "{\"id\":\"" + q(serverId.getText()) + "\",\"minecraftVersion\":\"1.21.11\",\"ramMb\":"
                     + ramMb.getText() + ",\"cpuCores\":" + cpuCores.getText() + ",\"serverPort\":" + serverPort.getText() + "}"));
-        }).dimensions(x, y + 136, 145, 20).build());
+        }).dimensions(x, y + 162, 145, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Start"), button -> {
             call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/start", "{}"));
-        }).dimensions(x + 155, y + 136, 70, 20).build());
+        }).dimensions(x + 155, y + 162, 70, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Stop"), button -> {
             call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/stop", "{}"));
-        }).dimensions(x + 230, y + 136, 70, 20).build());
+        }).dimensions(x + 230, y + 162, 70, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Refresh"), button -> refresh())
-                .dimensions(x, y + 162, 95, 20).build());
+                .dimensions(x, y + 188, 95, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Install Plugin"), button -> {
             call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/modrinth/install", "{\"project\":\"" + q(projectSlug.getText()) + "\",\"loader\":\"paper\"}"));
-        }).dimensions(x + 105, y + 162, 95, 20).build());
+        }).dimensions(x + 105, y + 188, 95, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Start Tunnel"), button -> {
             call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/tunnel/start", "{\"relayHost\":\"" + q(relayHost.getText())
                     + "\",\"controlPort\":" + controlPort.getText() + ",\"dataPort\":" + dataPort.getText()
                     + ",\"publicPort\":" + publicPort.getText() + ",\"localPort\":" + serverPort.getText()
                     + ",\"relayToken\":\"" + q(relayToken.getText()) + "\"}"));
-        }).dimensions(x + 205, y + 162, 95, 20).build());
+        }).dimensions(x + 205, y + 188, 95, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Stop Tunnel"), button -> {
             call(() -> ManagerClient.post("/servers/" + q(serverId.getText()) + "/tunnel/stop", "{}"));
-        }).dimensions(x, y + 188, 145, 20).build());
+        }).dimensions(x, y + 214, 145, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Back"), button -> close())
-                .dimensions(x + 155, y + 188, 145, 20).build());
+                .dimensions(x + 155, y + 214, 145, 20).build());
         refresh();
     }
 
@@ -73,18 +84,20 @@ public final class LocalServersScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
         int x = width / 2 - 150;
-        label(context, "Server", x, 30);
-        label(context, "RAM", x + 100, 30);
-        label(context, "CPU", x + 170, 30);
-        label(context, "Port", x + 230, 30);
-        label(context, "Modrinth slug", x, 64);
-        label(context, "Relay host", x + 155, 64);
-        label(context, "Public", x, 98);
-        label(context, "Control", x + 105, 98);
-        label(context, "Data", x + 210, 98);
-        label(context, "Relay token", x, 132);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer, Text.literal(status), width / 2, height - 28, 0xA0FFA0);
+        label(context, "Server", x, 42);
+        label(context, "RAM MB", x + 100, 42);
+        label(context, "CPU", x + 170, 42);
+        label(context, "MC Port", x + 230, 42);
+        label(context, "Modrinth plugin slug", x, 76);
+        label(context, "Relay host/IP", x + 155, 76);
+        label(context, "Player port", x, 110);
+        label(context, "Control", x + 105, 110);
+        label(context, "Data", x + 210, 110);
+        label(context, "Relay token", x, 144);
+        context.fill(x - 2, height - 48, x + 302, height - 12, 0xAA000000);
+        context.drawTextWithShadow(textRenderer, Text.literal("Status:"), x + 6, height - 42, 0xFFFFFF);
+        context.drawTextWithShadow(textRenderer, Text.literal(shortStatus()), x + 6, height - 28, 0xA0FFA0);
     }
 
     @Override
@@ -119,9 +132,16 @@ public final class LocalServersScreen extends Screen {
             try {
                 status = supplier.get();
             } catch (Exception ex) {
-                status = ex.getMessage();
+                status = "Error: " + ex.getMessage();
             }
         }, "localservers-ui").start();
+    }
+
+    private String shortStatus() {
+        if (status == null) {
+            return "";
+        }
+        return status.length() > 92 ? status.substring(0, 92) : status;
     }
 
     private interface ThrowingSupplier {

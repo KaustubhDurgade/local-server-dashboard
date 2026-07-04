@@ -19,6 +19,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.jar.JarFile;
 
 public final class ManagerMain {
     private static final String VERSION = "0.1.0";
@@ -59,6 +61,7 @@ public final class ManagerMain {
         httpServer.createContext("/", this::handle);
         httpServer.start();
         System.out.println("Local server manager " + VERSION + " listening on http://127.0.0.1:" + port);
+        Thread.currentThread().join();
     }
 
     private void handle(HttpExchange exchange) throws IOException {
@@ -71,7 +74,10 @@ public final class ManagerMain {
                 json(exchange, 200, "{\"version\":\"" + VERSION + "\"}");
             } else if (method.equals("POST") && path.equals("/shutdown")) {
                 json(exchange, 200, "{\"status\":\"stopping\"}");
-                new Thread(() -> httpServer.stop(0), "localservers-shutdown").start();
+                new Thread(() -> {
+                    httpServer.stop(0);
+                    System.exit(0);
+                }, "localservers-shutdown").start();
             } else if (method.equals("GET") && path.equals("/servers")) {
                 json(exchange, 200, listServers());
             } else if (method.equals("POST") && path.equals("/servers/create")) {
@@ -116,7 +122,7 @@ public final class ManagerMain {
         writeIfMissing(dir.resolve("server.properties"), "motd=Local Server Dashboard\nserver-port=" + serverPort + "\nonline-mode=true\n");
         installBridgePlugin(dir);
         Path paperJar = dir.resolve("paper-" + minecraftVersion + ".jar");
-        if (!Files.exists(paperJar)) {
+        if (!validJar(paperJar)) {
             downloadPaper(minecraftVersion, paperJar);
         }
         servers.put(id, new ManagedServer(id, dir, paperJar, ramMb, cpuCores, serverPort));
@@ -159,9 +165,14 @@ public final class ManagerMain {
         if (response.statusCode() / 100 != 2) {
             throw new IOException("Paper download failed: HTTP " + response.statusCode());
         }
-        try (InputStream in = response.body(); OutputStream out = Files.newOutputStream(target)) {
+        Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
+        try (InputStream in = response.body(); OutputStream out = Files.newOutputStream(tmp)) {
             in.transferTo(out);
         }
+        if (!validJar(tmp)) {
+            throw new IOException("Downloaded Paper jar is invalid");
+        }
+        Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     private void download(String url, Path target) throws Exception {
@@ -173,9 +184,14 @@ public final class ManagerMain {
         if (response.statusCode() / 100 != 2) {
             throw new IOException(url + " failed: HTTP " + response.statusCode());
         }
-        try (InputStream in = response.body(); OutputStream out = Files.newOutputStream(target)) {
+        Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
+        try (InputStream in = response.body(); OutputStream out = Files.newOutputStream(tmp)) {
             in.transferTo(out);
         }
+        if (!validJar(tmp)) {
+            throw new IOException("Downloaded jar is invalid: " + target.getFileName());
+        }
+        Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     private String get(String url) throws Exception {
@@ -194,6 +210,9 @@ public final class ManagerMain {
         ManagedServer server = server(id);
         if (server.process != null && server.process.isAlive()) {
             return "{\"id\":\"" + id + "\",\"status\":\"running\"}";
+        }
+        if (!Files.exists(server.paperJar)) {
+            throw new IOException("Create server first; missing " + server.paperJar.getFileName());
         }
         List<String> command = new ArrayList<>();
         command.add("java");
@@ -373,6 +392,17 @@ public final class ManagerMain {
 
     private static String enc(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static boolean validJar(Path path) {
+        if (!Files.exists(path)) {
+            return false;
+        }
+        try (JarFile ignored = new JarFile(path.toFile())) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 
     private static Path rootFrom(String[] args) {
